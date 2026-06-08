@@ -157,6 +157,7 @@ campaigns and trims only the truly unprofitable ones.
 
 - `/run` — build and post the report(s) now
 - `/ping` — health check
+- `/log` — show recent applied budget changes (audit trail)
 
 ## Deployment (24/7)
 
@@ -198,9 +199,11 @@ get_chat_id.py       Telegram chat-id helper
 ## Safety
 
 - Read-only until you set `WRITE_ENABLED=true`; even then, every change needs a tap.
-- Only **budgets** are changed (no bids, no status), capped at `MAX_BUDGET_STEP`.
+- Only **budgets** are changed (no bids, no status), capped at `MAX_BUDGET_STEP` per
+  change and a rolling 30-day ceiling (`MONTHLY_BUDGET_CAP`) so weekly increases
+  can't compound forever.
 - Brand and shared-budget campaigns are never auto-changed.
-- All applied changes are written to a local SQLite audit log.
+- All applied changes are written to a local SQLite audit log (`/log` shows them).
 
 ## Tech
 

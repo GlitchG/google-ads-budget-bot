@@ -6,7 +6,7 @@ import sqlite3
 from pathlib import Path
 from typing import Optional
 
-DB_PATH = Path(__file__).parent.parent / "data" / "agency.db"
+DB_PATH = Path(__file__).parent.parent / "data" / "budget.db"
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS pending_actions (
@@ -72,3 +72,21 @@ def record_applied(conn, cid, budget_id, campaign, from_micros, to_micros) -> No
         (cid, budget_id, campaign, from_micros, to_micros, _now()),
     )
     conn.commit()
+
+
+def window_baseline(conn, cid, budget_id, days=30):
+    """Earliest from_micros applied for this account+budget in the last `days`
+    (start point for the rolling cumulative cap). None if no changes."""
+    since = (dt.datetime.now(dt.timezone.utc) - dt.timedelta(days=days)).isoformat()
+    row = conn.execute(
+        "SELECT from_micros FROM applied_budget_changes WHERE cid=? AND budget_id=? "
+        "AND applied_at>=? ORDER BY applied_at ASC LIMIT 1", (cid, budget_id, since)
+    ).fetchone()
+    return row["from_micros"] if row else None
+
+
+def recent_applied(conn, limit=12):
+    return conn.execute(
+        "SELECT campaign, from_micros, to_micros, applied_at FROM applied_budget_changes "
+        "ORDER BY applied_at DESC LIMIT ?", (limit,)
+    ).fetchall()

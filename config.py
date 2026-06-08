@@ -41,6 +41,8 @@ WOW_DELTA = float(os.getenv("WOW_DELTA", "0.30"))              # week-over-week 
 NO_CONV_CLICKS = int(os.getenv("NO_CONV_CLICKS", "25"))        # clicks w/ 0 conv -> flag
 SCALE_BUFFER = float(os.getenv("SCALE_BUFFER", "0.20"))        # scale floor = break-even * (1+buffer)
 MAX_BUDGET_STEP = float(os.getenv("MAX_BUDGET_STEP", "0.20"))  # max budget change per approval
+# Rolling-30d ceiling per budget so weekly +20% increases can't compound forever.
+MONTHLY_BUDGET_CAP = float(os.getenv("MONTHLY_BUDGET_CAP", "0.50"))
 # When false the bot is advisory-only (no buttons that mutate the account).
 WRITE_ENABLED = os.getenv("WRITE_ENABLED", "false").strip().lower() in ("1", "true", "yes")
 

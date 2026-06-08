@@ -3,7 +3,8 @@
 On schedule (per-account weekly time): for each account in config.ACCOUNTS —
 pull metrics, analyze (margin-aware, conversion-lag-adjusted), post report +
 best-practice tips, and (if WRITE_ENABLED) per-campaign budget-change buttons.
-Budgets only; brand & shared budgets are never auto-changed. Commands: /run, /ping.
+Budgets only; brand & shared budgets are never auto-changed. Increases are capped
+at a rolling-30d ceiling. Commands: /run, /ping, /log.
 """
 from __future__ import annotations
 
@@ -95,6 +96,18 @@ def _handle_callback(conn, cb) -> None:
         telegram.answer_callback(cb_id, "Skipped.")
         telegram.edit(mid, f"❌ <b>{a['campaign']}</b> — skipped.")
         return
+
+    # Rolling-30d cap (increases only) so weekly +20% can't compound forever.
+    if a["proposed_micros"] > a["current_micros"]:
+        baseline = state.window_baseline(conn, a["cid"], a["budget_id"], days=30) or a["current_micros"]
+        if baseline and a["proposed_micros"] / baseline - 1 > config.MONTHLY_BUDGET_CAP:
+            grown = a["proposed_micros"] / baseline - 1
+            state.set_status(conn, token, "skipped")
+            telegram.answer_callback(cb_id, "Monthly cap reached.")
+            telegram.edit(mid, f"🛑 <b>{a['campaign']}</b> — not applied: budget already +"
+                               f"{grown*100:.0f}% in 30 days (cap {config.MONTHLY_BUDGET_CAP*100:.0f}%). "
+                               f"Raise manually if intended.")
+            return
     try:
         budget.apply_budget(a["cid"], a["budget_id"], a["proposed_micros"])
         state.set_status(conn, token, "applied")
@@ -128,6 +141,15 @@ def poll_loop() -> None:
                 elif text.startswith("/ping"):
                     accs = ", ".join(a["name"] for a in config.ACCOUNTS)
                     telegram.send(f"🟢 Bot alive. Accounts: {accs}.")
+                elif text.startswith("/log"):
+                    rows = state.recent_applied(conn, 12)
+                    if not rows:
+                        telegram.send("📜 No budget changes applied yet.")
+                    else:
+                        lines = "\n".join(
+                            f"• {r['applied_at'][:10]} <b>{r['campaign']}</b>: "
+                            f"{_money(r['from_micros'])}→{_money(r['to_micros'])}" for r in rows)
+                        telegram.send(f"📜 <b>Recent budget changes:</b>\n{lines}")
         except Exception:  # noqa: BLE001
             log.exception("poll loop error")
 
@@ -155,7 +177,7 @@ def main() -> None:
     log.info("Scheduler started: %s", sked)
     mode = "write enabled" if config.WRITE_ENABLED else "advisory only"
     telegram.send(f"🟢 Bot online ({mode}). Schedule ({config.SCHEDULE_DAYS}, {config.SCHEDULE_TZ}): "
-                  f"<b>{sked}</b>. /run — now, /ping — health.")
+                  f"<b>{sked}</b>. /run — now, /ping — health, /log — recent changes.")
     poll_loop()
 
 
