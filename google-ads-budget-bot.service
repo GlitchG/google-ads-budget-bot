@@ -1,0 +1,19 @@
+# systemd unit template. Adjust paths, then:
+#   sudo cp google-ads-budget-bot.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now google-ads-budget-bot
+[Unit]
+Description=Google Ads budget optimizer Telegram bot
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/google-ads-budget-bot
+ExecStart=/opt/google-ads-budget-bot/.venv/bin/python /opt/google-ads-budget-bot/bot_service.py
+Restart=always
+RestartSec=10
+StandardOutput=append:/opt/google-ads-budget-bot/data/bot.log
+StandardError=append:/opt/google-ads-budget-bot/data/bot.err.log
+
+[Install]
+WantedBy=multi-user.target
