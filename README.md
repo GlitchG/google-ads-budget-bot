@@ -46,6 +46,14 @@ the classic mistakes:
 - **Self-monitoring.** Alerts to Telegram on API/auth failures; an optional watchdog
   pings you if the service goes down.
 
+## Does it use AI?
+
+**No LLM at runtime.** The bot is deterministic Python — it queries the Google Ads
+API and applies fixed, auditable rules. No model decides what to change. The only
+optional AI touchpoint is *maintaining* the Markdown knowledge base of tips, which
+you can edit by hand or with any tool. It's fully standalone — no external agent or
+service required.
+
 ## Features
 
 - Multi-account (one entry per account under your MCC)
@@ -92,7 +100,8 @@ the recommendations and want the one-tap budget buttons.
 ## Getting Google Ads API access
 
 You need four things: a **developer token**, an **OAuth client**, a **refresh
-token**, and your **account IDs**.
+token**, and your **account IDs**. Full step-by-step including the access
+*application* (what to write so it gets approved): **[docs/GOOGLE_ADS_API_ACCESS.md](docs/GOOGLE_ADS_API_ACCESS.md)**.
 
 1. **Developer token** — sign in to your **Manager (MCC) account** →
    *Tools & Settings → API Center* → copy the developer token. New tokens may need a
