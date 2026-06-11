@@ -30,6 +30,8 @@ def run_account(conn, acc: dict) -> None:
     log.info("Analyzing %s (%s)…", name, cid)
     cur, prev, (cs, ce), _ = ads.pull_two_periods(cid, tz, days=7)
     result = analyze(cur, prev, margin, days=7)
+    result["monthly"] = ads.monthly_trend(cid, tz, margin, days=30)
+    result["campaign_monthly"] = ads.campaign_monthly(cid, tz, days=30)
     period = f"{cs:%d %b} – {ce:%d %b %Y}"
     telegram.send(format_report(ads.account_name(cid), period, result))
 
@@ -47,11 +49,26 @@ def run_account(conn, acc: dict) -> None:
         return
     telegram.send(f"💰 <b>Budget — {name}</b> (max ±{config.MAX_BUDGET_STEP*100:.0f}%). "
                   f"Applied only on tap:")
+    # Weekly + 30d stats per campaign, right next to the buttons (decision context).
+    from src.report import _dyn
+    cm = {r["name"]: r for r in result.get("campaign_monthly", [])}
+    wk = ads.campaign_deltas(cur, prev)
+
+    def _stat_line(icon: str, label: str, m: dict) -> str:
+        trend = " <i>(new)</i>" if m["is_new"] else f", ROAS {_dyn(m['d_roas'])}"
+        return (f"\n{icon} {label}: {config.CURRENCY}{m['cost']:,.0f} · ROAS {m['roas']:.1f}"
+                f" (spend {_dyn(m['d_cost'])}{trend})")
+
     for a in actions:
         arrow = "▲" if a.direction == "up" else "▼"
+        stats = ""
+        if a.campaign in wk:
+            stats += _stat_line("📈", "7d", wk[a.campaign])
+        if a.campaign in cm:
+            stats += _stat_line("📅", "30d", cm[a.campaign])
         text = (f"{arrow} <b>{a.campaign}</b> <i>({name})</i>\n"
                 f"{_money(a.current_micros)} → <b>{_money(a.proposed_micros)}</b>/day\n"
-                f"<i>{a.reason}</i>")
+                f"<i>{a.reason}</i>{stats}")
         keyboard = [[{"text": "✅ Apply", "callback_data": f"bgo:{a.token}"},
                      {"text": "❌ Skip", "callback_data": f"bno:{a.token}"}]]
         mid = telegram.send_buttons(text, keyboard)
